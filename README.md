@@ -1,4 +1,4 @@
-Suvereno Standard wallet repository
+Suvereno wallet repository
 =====================================
 
 ### Coin Specs
