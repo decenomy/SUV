@@ -12,6 +12,7 @@
 #include "masternode-sync.h"
 #include "masternodeman.h"
 #include "netbase.h"
+#include "rewards.h"
 #include "spork.h"
 #include "sync.h"
 #include "util.h"
@@ -188,17 +189,11 @@ void CMasternode::Check(bool forceCheck)
 {
     if (ShutdownRequested()) return;
 
-    const Consensus::Params& consensus = Params().GetConsensus();
-
-    // todo: add LOCK(cs) but be careful with the AcceptableInputs() below that requires cs_main.
-
-    if (!forceCheck && (GetTime() - lastTimeChecked < MASTERNODE_CHECK_SECONDS)) return;
-    lastTimeChecked = GetTime();
-
-
     //once spent, stop doing the checks
     if (activeState == MASTERNODE_VIN_SPENT) return;
 
+    if (!forceCheck && (GetTime() - lastTimeChecked < MASTERNODE_CHECK_SECONDS)) return;
+    lastTimeChecked = GetTime();
 
     if (!IsPingedWithin(MASTERNODE_REMOVAL_SECONDS)) {
         activeState = MASTERNODE_REMOVE;
@@ -215,7 +210,10 @@ void CMasternode::Check(bool forceCheck)
         return;
     }
 
-    if (!unitTest && lastTimeChecked - lastTimeCollateralChecked > MINUTE_IN_SECONDS) {
+    if (!unitTest && 
+        forceCheck && 
+        lastTimeChecked - lastTimeCollateralChecked > MINUTE_IN_SECONDS
+    ) {
         lastTimeCollateralChecked = lastTimeChecked;
         CValidationState state;
         CMutableTransaction tx = CMutableTransaction();
@@ -233,6 +231,8 @@ void CMasternode::Check(bool forceCheck)
                 return;
             }
         }
+
+        const auto& consensus = Params().GetConsensus();
 
         // ----------- burn address scanning -----------
         if (!consensus.mBurnAddresses.empty()) {
@@ -387,53 +387,12 @@ CAmount CMasternode::GetMasternodeNodeCollateral(int nHeight)
     return 3000 * COIN;
 }
 
-CAmount CMasternode::GetBlockValue(int nHeight)
-{
-    if (nHeight > 3000000) return     260.00 * COIN;
-    if (nHeight > 2900000) return     320.00 * COIN;
-    if (nHeight > 2800000) return     380.00 * COIN;
-    if (nHeight > 2700000) return     420.00 * COIN;
-    if (nHeight > 2600000) return     360.00 * COIN;
-    if (nHeight > 2500000) return     300.00 * COIN;
-    if (nHeight > 2400000) return     260.00 * COIN;
-    if (nHeight > 2300000) return     240.00 * COIN;
-    if (nHeight > 2200000) return     200.00 * COIN;
-    if (nHeight > 2100000) return     120.00 * COIN;
-    if (nHeight > 2012000) return      40.00 * COIN;
-    if (nHeight > 2000000) return      12.00 * COIN;
-    if (nHeight > 1000000) return      13.50 * COIN;
-    if (nHeight >  806400) return      15.00 * COIN;
-    if (nHeight >  766080) return      14.25 * COIN;
-    if (nHeight >  725760) return      13.50 * COIN;
-    if (nHeight >  685440) return      12.75 * COIN;
-    if (nHeight >  645120) return      12.00 * COIN;
-    if (nHeight >  604800) return      11.25 * COIN;
-    if (nHeight >  564480) return      10.50 * COIN;
-    if (nHeight >  524160) return       9.75 * COIN;
-    if (nHeight >  483840) return       9.00 * COIN;
-    if (nHeight >  443520) return       8.25 * COIN;
-    if (nHeight >  403200) return       7.50 * COIN;
-    if (nHeight >  362880) return       6.75 * COIN;
-    if (nHeight >  322560) return       6.00 * COIN;
-    if (nHeight >  282240) return       5.25 * COIN;
-    if (nHeight >  241920) return       4.50 * COIN;
-    if (nHeight >  201600) return       3.75 * COIN;
-    if (nHeight >  161280) return       3.00 * COIN;
-    if (nHeight >  120960) return       2.25 * COIN;
-    if (nHeight >   80640) return       1.50 * COIN;
-    if (nHeight >   40320) return       0.75 * COIN;
-    if (nHeight >       1) return       0.10 * COIN;
-    if (nHeight >       0) return 5460000.00 * COIN;
-
-    return 1 * COIN;
-}
-
 CAmount CMasternode::GetMasternodePayment(int nHeight)
 {
-    if (nHeight > 2012000) return GetBlockValue(nHeight) * 65 / 100;
-    if (nHeight >  403200) return GetBlockValue(nHeight) * 90 / 100;
-    if (nHeight >  201600) return GetBlockValue(nHeight) * 85 / 100;
-    if (nHeight >     224) return GetBlockValue(nHeight) * 80 / 100;
+    if (nHeight > 2012000) return CRewards::GetBlockValue(nHeight) * 65 / 100;
+    if (nHeight >  403200) return CRewards::GetBlockValue(nHeight) * 90 / 100;
+    if (nHeight >  201600) return CRewards::GetBlockValue(nHeight) * 85 / 100;
+    if (nHeight >     224) return CRewards::GetBlockValue(nHeight) * 80 / 100;
     return 0;
 }
 
@@ -730,7 +689,7 @@ bool CMasternodeBroadcast::CheckAndUpdate(int& nDos)
         //take the newest entry
         LogPrint(BCLog::MASTERNODE, "mnb - Got updated entry for %s\n", vin.prevout.ToStringShort());
         if (pmn->UpdateFromNewBroadcast((*this))) {
-            pmn->Check();
+            pmn->Check(true);
             if (pmn->IsEnabled()) Relay();
         }
         masternodeSync.AddedMasternodeList(GetHash());
