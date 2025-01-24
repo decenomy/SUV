@@ -376,8 +376,6 @@ static const CRPCCommand vRPCCommands[] =
         {"suvereno", "listmasternodeconf", &listmasternodeconf, true },
         {"suvereno", "getactivemasternodecount", &getactivemasternodecount, true },
         {"suvereno", "getmasternodestatus", &getmasternodestatus, true },
-        {"suvereno", "getmasternodewinners", &getmasternodewinners, true },
-        {"suvereno", "getmasternodescores", &getmasternodescores, true },
         {"suvereno", "mnsync", &mnsync, true },
         {"suvereno", "spork", &spork, true },
         {"suvereno", "mnping", &mnping, true },
