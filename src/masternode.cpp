@@ -671,7 +671,7 @@ bool CMasternodeBroadcast::CheckInputsAndAdd(int& nDoS)
             return false;
         }
 
-        auto week_in_blocks = WEEK_IN_SECONDS / Params().GetConsensus().nTargetSpacing;
+        auto week_in_blocks = WEEK_IN_SECONDS / Params().GetConsensus().TargetSpacing(chainActive.Height());
 
         if (GetMasternodeNodeCollateral(nConfHeight) != GetMasternodeNodeCollateral(chainActive.Height()) &&
             GetMasternodeNodeCollateral(nConfHeight + week_in_blocks) != GetMasternodeNodeCollateral(chainActive.Height()))

@@ -141,11 +141,12 @@ bool CRewards::Init()
                 const auto nFeatureStartHeight = consensus.vUpgrades[Consensus::UPGRADE_DYNAMIC_REWARDS].nActivationHeight;
                 const auto nCurrentHeight = chainActive.Height();
                 const auto nRewardAdjustmentInterval = consensus.nRewardAdjustmentInterval;
+                const auto nRewardAdjustmentIntervalV2 = consensus.nRewardAdjustmentIntervalV2;
 
                 for(
                     int nEpochHeight = GetDynamicRewardsEpochHeight(nFeatureStartHeight) + nRewardAdjustmentInterval; 
                     nEpochHeight <= nCurrentHeight; 
-                    nEpochHeight += nRewardAdjustmentInterval
+                    nEpochHeight += nEpochHeight >= 3890880 ? nRewardAdjustmentIntervalV2 : nRewardAdjustmentInterval
                 ) {
                     if (mDynamicRewards.find(nEpochHeight) == mDynamicRewards.end()) { // missing entry
                         const auto& pIndex = chainActive[nEpochHeight + 1];            // gets the first block index of that epoch
@@ -229,7 +230,7 @@ int CRewards::GetDynamicRewardsEpoch(int nHeight)
 {
     const auto& params = Params();
     const auto& consensus = params.GetConsensus();
-    const auto nRewardAdjustmentInterval = consensus.nRewardAdjustmentInterval;
+    const auto nRewardAdjustmentInterval = nHeight > 3890880 ? consensus.nRewardAdjustmentIntervalV2 : consensus.nRewardAdjustmentInterval;
     return nHeight / nRewardAdjustmentInterval;
 }
 
@@ -237,7 +238,7 @@ int CRewards::GetDynamicRewardsEpochHeight(int nHeight)
 {
     const auto& params = Params();
     const auto& consensus = params.GetConsensus();
-    const auto nRewardAdjustmentInterval = consensus.nRewardAdjustmentInterval;
+    const auto nRewardAdjustmentInterval = nHeight > 3890880 ? consensus.nRewardAdjustmentIntervalV2 : consensus.nRewardAdjustmentInterval;
     return GetDynamicRewardsEpoch(nHeight) * nRewardAdjustmentInterval;
 }
 
@@ -263,9 +264,10 @@ bool CRewards::ConnectBlock(const CBlockIndex* pindex, CAmount nSubsidy)
 
         if (IsDynamicRewardsEpochHeight(nHeight)) 
         {
-            auto nBlocksPerDay = DAY_IN_SECONDS / consensus.nTargetSpacing;
-            auto nBlocksPerWeek = WEEK_IN_SECONDS / consensus.nTargetSpacing;
-            auto nBlocksPerMonth = MONTH_IN_SECONDS / consensus.nTargetSpacing;
+            auto nTargetSpacing = nHeight >= 3890880 ? consensus.TargetSpacing(nHeight) : consensus.nTargetSpacing;
+            auto nBlocksPerDay = DAY_IN_SECONDS / nTargetSpacing;
+            auto nBlocksPerWeek = WEEK_IN_SECONDS / nTargetSpacing;
+            auto nBlocksPerMonth = MONTH_IN_SECONDS / nTargetSpacing;
 
             // get total money supply
             const auto nMoneySupply = pindex->nMoneySupply.get();
@@ -547,7 +549,7 @@ CBlockchainStatus::getblockchainstatus()
     nHeight = pTip->nHeight;
 
     // Fetch consensus parameters
-    const auto nTargetSpacing = consensus.nTargetSpacing;
+    const auto nTargetSpacing = consensus.TargetSpacing(nHeight);
     const auto nTargetTimespan = consensus.TargetTimespan(nHeight);
     const auto nTimeSlotLength = consensus.TimeSlotLength(nHeight);
 
