@@ -138,7 +138,7 @@ unsigned int GetNextWorkRequiredPOSV2(const CBlockIndex* pIndexLast)
     const auto posLimit = consensus.ProofOfStakeLimit(fIsTimeProtocolV2);
  
     // Fetch the target block spacing time and timespan
-    int64_t nTargetSpacing = consensus.nTargetSpacing;
+    int64_t nTargetSpacing = nHeight > 3890880 ? consensus.TargetSpacing(nHeight) : consensus.nTargetSpacing;
 
     const int nTargetBlocksPerDay = DAY_IN_SECONDS / nTargetSpacing;
     const int nTargetBlocksPerWeek = WEEK_IN_SECONDS / nTargetSpacing;
